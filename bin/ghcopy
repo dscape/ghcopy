@@ -1,0 +1,100 @@
+#!/usr/bin/env node
+var request  = require('request');
+var fs       = require('fs');
+var path     = require('path');
+var optimist = require('optimist');
+var url      = require('url');
+var opener   = require("opener");
+
+//
+// user home in a os agnostic way
+//
+var tilde = 
+  process.env[(process.platform === 'win32') ? 'USERPROFILE' : 'HOME'];
+
+var dotf = path.join(tilde, '.ghcopy');
+
+//
+// if options were not specified we need to check if the user has a .file
+// containing his credentials.
+//
+var opts_from_file = {};
+
+try {
+  var dotfile = JSON.parse(fs.readFileSync(dotf));
+  opts_from_file.t = dotfile.t;
+} catch (_) {
+  //
+  // Failed
+  //
+}
+
+
+var argv    = optimist
+  .usage(
+    'usage: cat ~/.ssh/id_rsa.pub | $0\n' +
+    'hint : you can also define `t` in ~/.ghcopy\n' +
+    '       use $0-authorize to securely create a token for you')
+  .alias('d', 'description')
+    .describe('d', 'description for this gist')
+    ["default"]('d', 'gist created by github.com/dscape/ghcopy')
+  .alias('f', 'filename')
+    .describe('f', 'filename for the file pasted in this gist')
+    ["default"]('f', 'ghcopy.txt')
+  .alias('p', 'public')
+    .describe('p', 'boolean defining if this gist should be public or not')
+    .boolean(['p'])
+    ["default"]('p', false)
+  .alias('t', 'token')
+    .describe('t', 'define a github token')
+    ["default"]('t', opts_from_file.t)
+    .demand('t')
+  .argv
+  ;
+
+//
+// To buffer our data
+//
+var buffer = '';
+
+//
+// Our post to create a gist
+//
+var post = 
+  { method        : "POST"
+  , headers       : {"Authorization": "bearer " + argv.t }
+  , uri           : url.format(
+    { hostname    : 'api.github.com'
+    , pathname    : "/gists"
+    , protocol    : "https"
+    })
+  , json: 
+    { description : argv.d
+    , "public"    : argv.p
+    , files       : {}
+    }
+  };
+
+var stdin = process.openStdin();
+stdin.setEncoding('utf8');
+
+stdin.on('data', function (chunk) {
+  buffer += chunk;
+});
+
+stdin.on('end', function () {
+  post.json.files[argv.f] = {content: buffer};
+  request(post, function (err, _, body) {
+    if(err) {
+      console.log('Request failed with message: ' + err.message);
+      process.exit();
+    }
+    if(!body.html_url) {
+      console.log('Request failed: No url in body');
+      console.log(JSON.stringify(body, null, 2));
+      process.exit();
+    }
+    console.log(body.html_url);
+    opener(body.html_url);
+  });
+});

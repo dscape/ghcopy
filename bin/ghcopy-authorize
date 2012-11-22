@@ -1,0 +1,114 @@
+#!/usr/bin/env node
+var request  = require('request');
+var optimist = require('optimist');
+var prompt   = require('prompt');
+var url      = require('url');
+var path     = require('path');
+var fs       = require('fs');
+
+//
+// user home in a os agnostic way
+//
+var tilde = 
+  process.env[(process.platform === 'win32') ? 'USERPROFILE' : 'HOME'];
+
+var dotf  = path.join(tilde, '.ghcopy');
+
+var argv  = optimist
+  .usage(
+    'usage: $0 -u [username]')
+  .alias('u', 'username')
+    .describe('u', 'define the github username')
+  .argv
+  ;
+
+//
+// set the overrides
+//
+prompt.override = argv;
+
+//
+// Start the prompt
+//
+prompt.start();
+
+//
+// Get two properties from the user: username and email
+//
+prompt.get([
+  {name: 'username', required: true},
+  {name: 'password', required: true, hidden: true}], function (err, p) {
+  if(err) {
+    console.log(err.message);
+    process.exit();
+  }
+
+  //
+  // Try to create a api token passing the username and password for
+  // github
+  //
+  var post = { 
+      method: "POST",
+      uri: url.format({
+          hostname: 'api.github.com',
+          pathname: "/authorizations",
+          protocol: "https",
+          auth: p.username + ':' + p.password
+        }),
+      json: { "scopes": ["gist"], 
+              "note": "Created by http://github.com/dscape/ghcopy",
+              "note_url": "http://github.com/dscape/ghcopy"
+            }
+    };
+
+  //
+  // Request the token from the github api
+  //
+  request(post, function (err, res, body) {
+    if (err) {
+      console.log(err.message);
+      process.exit();
+    }
+
+    //
+    // API code for success is 201
+    //
+    if (res.statusCode !== 201) {
+      console.log("Auth failed, returned status code " + res.statusCode);
+      console.log(body);
+      process.exit();
+    }
+
+    if (typeof body.token !== 'string' || body.token === '') {
+      console.log('Invalid token returned from github');
+      console.log(JSON.stringify(body||{}));
+      process.exit();
+    }
+
+    //
+    // Worked. Yuppy!
+    //
+    var dotfile = JSON.stringify({t: body.token}, null, 2);
+
+    //
+    // Write our dot file
+    //
+    fs.writeFileSync(dotf, dotfile);
+
+    //
+    // chmod if in linux
+    //
+    if(process.platform !== 'win32') {
+      //
+      // r&w, only for user
+      //
+      fs.chmodSync(dotf, '600');
+    }
+
+    //
+    // Show it to our user
+    //
+    console.log(dotfile);
+  });
+
+});
