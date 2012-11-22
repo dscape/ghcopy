@@ -9,7 +9,7 @@ install [node]
 ``` js
 $ npm install -g ghcopy
 $ ghcopy-authorize
-prompt: password: drsocketybearsocks
+prompt: username: drsocketybearsocks
 prompt: password:
 {
   "t": "sometoken"
