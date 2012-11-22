@@ -26,6 +26,15 @@ if you are not comfortable with this you can create your token manually with cur
 cat ~/.ssh/id_rsa.pub | ghcopy
 ```
 
+```
+Options:
+  -d, --description  description for this gist                              [default: "gist created by github.com/dscape/ghcopy"]
+  -f, --filename     filename for the file pasted in this gist              [default: "ghcopy.txt"]
+  -p, --public       boolean defining if this gist should be public or not  [boolean]  [default: false]
+  -o, --open         boolean defining if we should open it in a browser     [boolean]  [default: true]
+  -t, --token        define a github token                                  [required]  [default: "242cbd5fdc70600772c558162c0d7c3e050afabc"]
+```
+
 # contribute
 
 everyone is welcome to contribute. patches, bug-fixes, reporters, new features.

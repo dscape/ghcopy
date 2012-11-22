@@ -45,6 +45,10 @@ var argv    = optimist
     .describe('p', 'boolean defining if this gist should be public or not')
     .boolean(['p'])
     ["default"]('p', false)
+  .alias('o', 'open')
+    .describe('o', 'boolean defining if we should open it in a browser')
+    .boolean(['o'])
+    ["default"]('o', true)
   .alias('t', 'token')
     .describe('t', 'define a github token')
     ["default"]('t', opts_from_file.t)
@@ -95,6 +99,8 @@ stdin.on('end', function () {
       process.exit();
     }
     console.log(body.html_url);
-    opener(body.html_url);
+    if(argv.o) {
+      opener(body.html_url);
+    }
   });
 });
