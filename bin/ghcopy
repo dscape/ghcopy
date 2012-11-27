@@ -79,15 +79,13 @@ var post =
     }
   };
 
-var stdin = process.openStdin();
-stdin.setEncoding('utf8');
+function post_to_github() {
+  if(buffer === '') {
+    console.log('Nothing to send');
+    process.exit();
+  }
 
-stdin.on('data', function (chunk) {
-  buffer += chunk;
-});
-
-stdin.on('end', function () {
-  post.json.files[argv.f] = {content: buffer};
+  post.json.files[argv.f] = { content: buffer };
   request(post, function (err, _, body) {
     if(err) {
       console.log('Request failed with message: ' + err.message);
@@ -103,4 +101,14 @@ stdin.on('end', function () {
       opener(body.html_url);
     }
   });
+}
+
+var stdin = process.openStdin();
+stdin.setEncoding('utf8');
+
+stdin.on('data', function (chunk) {
+  buffer += chunk;
 });
+
+stdin.on('end', post_to_github);
+process.on('SIGINT', post_to_github);

@@ -1,6 +1,6 @@
 {
   "name": "ghcopy",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Provides copy to gist functionality for your terminal",
   "main": "bin/ghcopy.js",
   "scripts": {
