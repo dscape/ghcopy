@@ -111,4 +111,4 @@ stdin.on('data', function (chunk) {
 });
 
 stdin.on('end', post_to_github);
-process.on('SIGINT', post_to_github);
+process.on('SIGINT', function () { stdin.end(); });
