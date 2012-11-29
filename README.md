@@ -20,11 +20,15 @@ a file called `~/.ghcopy` containing your token was created. if you are not in w
 
 if you are not comfortable with this you can create your token manually with curl and specify it each time you invoke ghcopy.
 
+you can also specify all the other options here if you like. you might find that useful.
+
 ## usage
 
 ```
-cat ~/.ssh/id_rsa.pub | ghcopy
+cat ~/.ssh/id_rsa.pub 2>&1 | ghcopy
 ```
+
+why did i add `2>&1` ? cause some scripts will error out, and you want to capture that.
 
 ```
 Options:
@@ -33,6 +37,7 @@ Options:
   -p, --public       boolean defining if this gist should be public or not  [boolean]  [default: false]
   -o, --open         boolean defining if we should open it in a browser     [boolean]  [default: true]
   -t, --token        define a github token                                  [required]  [default: "from file"]
+  -h, --help         this message
 ```
 
 # contribute

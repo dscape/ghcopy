@@ -20,52 +20,117 @@ var dotf = path.join(tilde, '.ghcopy');
 //
 var opts_from_file = {};
 
+//
+// get our token, plus user defined defaults from our dot file
+//
 try {
   var dotfile = JSON.parse(fs.readFileSync(dotf));
   opts_from_file.t = dotfile.t;
+  opts_from_file.f = dotfile.f;
+  opts_from_file.d = dotfile.d;
+  opts_from_file.p = dotfile.p;
+  opts_from_file.o = dotfile.o;
+  opts_from_file.v = dotfile.v;
 } catch (_) {
   //
-  // Failed
+  // failed, no file :\
+  // get stuff from optimist
   //
 }
 
-
 var argv    = optimist
+  //
+  // usage
+  //
   .usage(
-    'usage: cat ~/.ssh/id_rsa.pub | $0\n' +
+    'cat ~/.ssh/id_rsa.pub 2>&1 | $0\n' +
     'hint : you can also define `t` in ~/.ghcopy\n' +
     '       use $0-authorize to securely create a token for you')
+  //
+  // d: description
+  //
   .alias('d', 'description')
     .describe('d', 'description for this gist')
-    ["default"]('d', 'gist created by github.com/dscape/ghcopy')
+    ["default"]('d',
+      opts_from_file.d || 'gist created by github.com/dscape/ghcopy')
+  //
+  // v: verbose
+  //
+  .alias('v', 'verbose')
+    .describe('v', 'output to console while creating the gist')
+    .boolean(['v'])
+    ["default"]('v',
+      typeof opts_from_file.v === 'boolean' ? opts_from_file.v : true)
+  //
+  // f: filename
+  //
   .alias('f', 'filename')
     .describe('f', 'filename for the file pasted in this gist')
-    ["default"]('f', 'ghcopy.txt')
+    ["default"]('f', opts_from_file.f || 'ghcopy.txt')
+  //
+  // p: public (or not)
+  //
   .alias('p', 'public')
     .describe('p', 'boolean defining if this gist should be public or not')
     .boolean(['p'])
-    ["default"]('p', false)
+    ["default"]('p',
+      typeof opts_from_file.p === 'boolean' ? opts_from_file.p : false)
+  //
+  // o: open in a browser
+  //
   .alias('o', 'open')
     .describe('o', 'boolean defining if we should open it in a browser')
     .boolean(['o'])
-    ["default"]('o', true)
+    ["default"]('o',
+      typeof opts_from_file.o === 'boolean' ? opts_from_file.o : true)
+  //
+  // t: github token
+  //
   .alias('t', 'token')
     .describe('t', 'define a github token')
     ["default"]('t', opts_from_file.t)
     .demand('t')
+  //
+  // h, for halp
+  //
+  .alias('h', 'help')
+    .describe('h', 'this message')
   .argv
   ;
 
 //
-// To buffer our data
+// user asking for help
+//
+if(argv.h) {
+  console.log(optimist.help());
+  process.exit();
+}
+
+//
+// to buffer our data
 //
 var buffer = '';
 
 //
-// Our post to create a gist
+// to control if we are updating a gist or creating a new one
 //
-var post = 
-  { method        : "POST"
+var gist_id;
+
+//
+// to control if our program is in the middle of a save operation
+//
+var saving = false;
+
+//
+// to control if a sigint occurred
+//
+var sigint_occured = false;
+
+//
+// our request to create a gist
+//
+var req = 
+  { method        : "PATCH"
   , headers       : {"Authorization": "bearer " + argv.t }
   , uri           : url.format(
     { hostname    : 'api.github.com'
@@ -79,36 +144,136 @@ var post =
     }
   };
 
-function post_to_github() {
-  if(buffer === '') {
-    console.log('Nothing to send');
+//
+// helpful when we end and somehow we cant reuse the original gist
+//
+req.original_uri = req.uri;
+
+function save_in_github(ended, tried) {
+  if(ended && buffer === '') {
+    console.log('error: nothing to send');
     process.exit();
   }
 
-  post.json.files[argv.f] = { content: buffer };
-  request(post, function (err, _, body) {
+  //
+  // control retries
+  //
+  tried = tried || 0;
+
+  //
+  // if we are saving
+  //
+  if(saving) {
+    //
+    // and the stream has ended try to post an update in a bit
+    //
+    if(ended) {
+      //
+      // max (@maxogden of course) retries
+      //
+      if(tried === 3) {
+        //
+        // lets just make a post
+        //
+        gist_id = null;
+        //
+        // absence of return means continue.. js, oh how we love you.
+        //
+      }
+      //
+      // retry
+      //
+      else {
+        //
+        // nothing we can do, so we need to retry until this works
+        //
+        return setTimeout(function () {
+          save_in_github(true, tried + 1);
+        }, 500);
+      }
+    }
+    //
+    // not ended? just continue buffering
+    //
+    else {
+      return;
+    }
+  }
+
+  //
+  // if this is not an update and we already created the gist
+  //
+  if(typeof gist_id !== 'string') {
+    req.method = 'POST';
+    req.uri = req.original_uri;
+  }
+
+  //
+  // add our current buffer to the file
+  //
+  req.json.files[argv.f] = { content: buffer };
+
+  saving = true;
+  request(req, function (err, _, body) {
+    saving = false;
+
     if(err) {
-      console.log('Request failed with message: ' + err.message);
+      console.log('error: request failed with message: ' + err.message);
       process.exit();
     }
+
     if(!body.html_url) {
-      console.log('Request failed: No url in body');
-      console.log(JSON.stringify(body, null, 2));
+      console.log('error: no url in request body');
+      console.log(JSON.stringify(body, null, 2), req);
       process.exit();
     }
-    console.log(body.html_url);
-    if(argv.o) {
-      opener(body.html_url);
+
+    if(typeof gist_id !== 'string') {
+      gist_id = body.id;
+      req.uri += '/' + gist_id;
+    }
+
+    if(ended) {
+      console.log('>', body.html_url);
+      if(argv.o) {
+        opener(body.html_url);
+      }
     }
   });
+}
+
+function write_and_buffer_chunk(chunk) {
+  //
+  // if we are in verbose mode write it out
+  //
+  if(argv.v) {
+    process.stdout.write(chunk);
+  }
+
+  //
+  // add to buffer
+  //
+  buffer += chunk;
+  
+  //
+  // update or create in github
+  //
+  save_in_github();
 }
 
 var stdin = process.openStdin();
 stdin.setEncoding('utf8');
 
-stdin.on('data', function (chunk) {
-  buffer += chunk;
-});
+stdin.on('data', write_and_buffer_chunk);
 
-stdin.on('end', post_to_github);
-process.on('SIGINT', function () { stdin.end(); });
+stdin.on('end', function () { save_in_github(true); });
+process.on('SIGINT', function () {
+  //
+  // after the first sigint close this stuff and get on with it
+  //
+  if(!sigint_occured) {
+    sigint_occured = true;
+    save_in_github(true);
+    stdin.destroySoon();
+  }
+});
