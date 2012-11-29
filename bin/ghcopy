@@ -150,9 +150,25 @@ var req =
 req.original_uri = req.uri;
 
 function save_in_github(ended, tried) {
-  if(ended && buffer === '') {
-    console.log('error: nothing to send');
-    process.exit();
+  //
+  // do we actually have stuff to send?
+  //
+  var data_to_send = buffer.trim().length !== 0;
+
+  if(!data_to_send) {
+    if(ended) {
+      //
+      // we are done lets get out of here
+      //
+      console.log('error: nothing to send');
+      process.exit();
+    }
+    else {
+      //
+      // continue
+      //
+      return;
+    }
   }
 
   //
