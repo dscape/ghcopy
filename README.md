@@ -33,10 +33,11 @@ why did i add `2>&1` ? cause some scripts will error out, and you want to captur
 ```
 Options:
   -d, --description  description for this gist                              [default: "gist created by github.com/dscape/ghcopy"]
+  -v, --verbose      output to console while creating the gist              [boolean]  [default: true]
   -f, --filename     filename for the file pasted in this gist              [default: "ghcopy.txt"]
   -p, --public       boolean defining if this gist should be public or not  [boolean]  [default: false]
   -o, --open         boolean defining if we should open it in a browser     [boolean]  [default: true]
-  -t, --token        define a github token                                  [required]  [default: "from file"]
+  -t, --token        define a github token                                  [required]  [default: "84c90072d47a61c0d0e51c11c42896e0bf7f8be6"]
   -h, --help         this message
 ```
 
