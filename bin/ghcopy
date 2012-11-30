@@ -12,6 +12,9 @@ var opener   = require("opener");
 var tilde = 
   process.env[(process.platform === 'win32') ? 'USERPROFILE' : 'HOME'];
 
+//
+// location of our dot file, normally `~/.ghcopy`
+//
 var dotf = path.join(tilde, '.ghcopy');
 
 //
@@ -128,6 +131,8 @@ var sigint_occured = false;
 
 //
 // our request to create a gist
+// defaults to updates, posts change this req object in the method
+// that does the request
 //
 var req = 
   { method        : "PATCH"
@@ -149,18 +154,35 @@ var req =
 //
 req.original_uri = req.uri;
 
+//
+// ### function save_in_github(ended, tried)
+// #### @ended {boolean} *optional* if this is the last time this is being
+//      called
+// #### @tried {number}  *optional* number of retries so far, defaults to
+//      zero
+//
+// tries to save the buffer to gist.github — will try to create gist if gist
+// doesn't exist. on failure stuff keeps being buffered and this will be
+// retried either on a `data` or `end` event
+//
 function save_in_github(ended, tried) {
   //
   // do we actually have stuff to send?
   //
   var data_to_send = buffer.trim().length !== 0;
 
+  //
+  // if there is no data to send
+  //
   if(!data_to_send) {
+    //
+    // and our stream has ended
+    //
     if(ended) {
       //
       // we are done lets get out of here
       //
-      console.log('error: nothing to send');
+      console.error('error: nothing to send');
       process.exit();
     }
     else {
@@ -181,7 +203,8 @@ function save_in_github(ended, tried) {
   //
   if(saving) {
     //
-    // and the stream has ended try to post an update in a bit
+    // and the stream has ended
+    // try to post an update in a bit
     //
     if(ended) {
       //
@@ -189,7 +212,7 @@ function save_in_github(ended, tried) {
       //
       if(tried === 3) {
         //
-        // lets just make a post
+        // this will force a new gist
         //
         gist_id = null;
         //
@@ -209,7 +232,7 @@ function save_in_github(ended, tried) {
       }
     }
     //
-    // not ended? just continue buffering
+    // not ended? continue buffering
     //
     else {
       return;
@@ -217,7 +240,8 @@ function save_in_github(ended, tried) {
   }
 
   //
-  // if this is not an update and we already created the gist
+  // by default we assume this is an update and gist_id exists
+  // if this is not an update we need to create the gist
   //
   if(typeof gist_id !== 'string') {
     req.method = 'POST';
@@ -229,19 +253,40 @@ function save_in_github(ended, tried) {
   //
   req.json.files[argv.f] = { content: buffer };
 
+  //
+  // set to saving, to avoid people doing concurrent requests
+  //
   saving = true;
+
   request(req, function (err, _, body) {
+    //
+    // request is done
+    //
     saving = false;
 
     if(err) {
-      console.log('error: request failed with message: ' + err.message);
-      process.exit();
+      if(err.code === 'ENOTFOUND' && err.syscall === 'getaddrinfo') {
+        console.error('error: not connected to the internet');
+      }
+      else {
+        console.error('error: request failed with message — ' + err.message);
+      }
+
+      //
+      // continue to gather stuff
+      // maybe the internet had a glitch and it comes back online
+      // buffer is never purged, so this is ok
+      //
+      return;
     }
 
     if(!body.html_url) {
-      console.log('error: no url in request body');
-      console.log(JSON.stringify(body, null, 2), req);
-      process.exit();
+      console.error('error: no url in request body');
+      console.error(JSON.stringify(body, null, 2), req);
+      //
+      // continue
+      //
+      return;
     }
 
     if(typeof gist_id !== 'string') {
