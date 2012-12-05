@@ -91,7 +91,8 @@ var argv    = optimist
   //
   .alias('t', 'token')
     .describe('t', 'define a github token')
-    ["default"]('t', opts_from_file.t)
+    ["default"]('t', opts_from_file.t ||
+      '402592a8d7af882dec19a60b1b0172c016193de4')
     .demand('t')
   //
   // h, for halp
