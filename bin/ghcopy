@@ -337,5 +337,8 @@ process.on('SIGINT', function () {
     sigint_occured = true;
     save_in_github(true);
     stdin.destroySoon();
+  } else {
+    console.log('you really want to quit. this is your gist id' + gist_id);
+    process.exit();
   }
 });
