@@ -60,7 +60,7 @@ prompt.get([
               "note_url": "http://github.com/dscape/ghcopy"
             },
       headers: {
-          'User-Agent': 'nodejs ghcopy module'
+          'User-Agent': 'github.com/dscape/ghcopy'
       }
     };
 
