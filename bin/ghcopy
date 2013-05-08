@@ -137,7 +137,10 @@ var sigint_occured = false;
 //
 var req = 
   { method        : "PATCH"
-  , headers       : {"Authorization": "bearer " + argv.t }
+  , headers       :
+    { "Authorization" : "bearer " + argv.t
+    , "user-agent"    : "github.com/dscape/ghcopy"
+    }
   , uri           : url.format(
     { hostname    : 'api.github.com'
     , pathname    : "/gists"
@@ -183,8 +186,7 @@ function save_in_github(ended, tried) {
       //
       // we are done lets get out of here
       //
-      console.error('error: nothing to send');
-      process.exit();
+      throw new Error('error: nothing to send');
     }
     else {
       //
