@@ -1,6 +1,6 @@
 # ghcopy
 
-dead simple way to copy paste your stdin to github
+dead simple way to copy paste your stdin to [gist.github.com](https://gist.github.com)
 
 ## setup
 
@@ -29,6 +29,8 @@ cat ~/.ssh/id_rsa.pub 2>&1 | ghcopy
 ```
 
 why did i add `2>&1` ? cause some scripts will error out, and you want to capture that.
+
+anything piped to ghcopy on stdin will be sent to a new gist.
 
 ```
 Options:
