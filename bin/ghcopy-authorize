@@ -9,7 +9,7 @@ var fs       = require('fs');
 //
 // user home in a os agnostic way
 //
-var tilde = 
+var tilde =
   process.env[(process.platform === 'win32') ? 'USERPROFILE' : 'HOME'];
 
 var dotf  = path.join(tilde, '.ghcopy');
@@ -47,7 +47,7 @@ prompt.get([
   // Try to create a api token passing the username and password for
   // github
   //
-  var post = { 
+  var post = {
       method: "POST",
       uri: url.format({
           hostname: 'api.github.com',
@@ -55,7 +55,7 @@ prompt.get([
           protocol: "https",
           auth: p.username + ':' + p.password
         }),
-      json: { "scopes": ["gist"], 
+      json: { "scopes": ["gist"],
               "note": "Created by http://github.com/dscape/ghcopy",
               "note_url": "http://github.com/dscape/ghcopy"
             },
@@ -67,51 +67,66 @@ prompt.get([
   //
   // Request the token from the github api
   //
-  request(post, function (err, res, body) {
-    if (err) {
-      console.log(err.message);
-      process.exit();
+  var makeRequest = function() {
+
+      request(post, function (err, res, body) {
+        if (err) {
+          console.log(err.message);
+          process.exit();
+        }
+
+        //
+        // API code for success is 201
+        //
+        if ((401 === res.statusCode) && res.headers['x-github-otp']) {
+            console.log('OTP FAIL')
+            prompt.get([
+                { name: 'one time password', required: true }
+            ], function(error, additional) {
+                 post.headers['X-GitHub-OTP'] = additional['one time password']
+                 makeRequest()
+            })
+            return
+        }
+        if (res.statusCode !== 201) {
+          console.log("Auth failed, returned status code " + res.statusCode);
+          console.log(body);
+          process.exit();
+        }
+
+        if (typeof body.token !== 'string' || body.token === '') {
+          console.log('Invalid token returned from github');
+          console.log(JSON.stringify(body||{}));
+          process.exit();
+        }
+
+        //
+        // Worked. Yuppy!
+        //
+        var dotfile = JSON.stringify({t: body.token}, null, 2);
+
+        //
+        // Write our dot file
+        //
+        fs.writeFileSync(dotf, dotfile);
+
+        //
+        // chmod if in linux
+        //
+        if(process.platform !== 'win32') {
+          //
+          // r&w, only for user
+          //
+          fs.chmodSync(dotf, '600');
+        }
+
+        //
+        // Show it to our user
+        //
+        console.log(dotfile);
+      });
     }
 
-    //
-    // API code for success is 201
-    //
-    if (res.statusCode !== 201) {
-      console.log("Auth failed, returned status code " + res.statusCode);
-      console.log(body);
-      process.exit();
-    }
-
-    if (typeof body.token !== 'string' || body.token === '') {
-      console.log('Invalid token returned from github');
-      console.log(JSON.stringify(body||{}));
-      process.exit();
-    }
-
-    //
-    // Worked. Yuppy!
-    //
-    var dotfile = JSON.stringify({t: body.token}, null, 2);
-
-    //
-    // Write our dot file
-    //
-    fs.writeFileSync(dotf, dotfile);
-
-    //
-    // chmod if in linux
-    //
-    if(process.platform !== 'win32') {
-      //
-      // r&w, only for user
-      //
-      fs.chmodSync(dotf, '600');
-    }
-
-    //
-    // Show it to our user
-    //
-    console.log(dotfile);
-  });
+    makeRequest()
 
 });
