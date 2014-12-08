@@ -62,8 +62,6 @@ everyone is welcome to contribute. patches, bug-fixes, reporters, new features.
 * home: <http://github.com/dscape/ghcopy>
 * bugs: <http://github.com/dscape/ghcopy/issues>
 
-`(oO)--',-` in [caos]
-
 <a name="license"/>
 # license
 
